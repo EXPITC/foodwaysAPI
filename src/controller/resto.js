@@ -1,0 +1,173 @@
+const { resto ,users} = require('../../models');
+
+exports.addResto = async (req, res) => {
+    try {
+        const data = req.body;
+        const {id} = req.user
+        const check = await resto.findOne({
+            where: { ownerId: id },
+            attributes: {
+                exclude: ['updatedAt','ownerId']
+            }
+        })
+
+        if (check) {
+            return res.status(409).send({
+                status: 'fail',
+                message: 'resto already exists, one owner just allowed have one resto',
+                check
+            })
+        }
+        const response = await resto.create({
+            ...data,
+            ownerId: id
+        })
+        
+        res.status(200).send({
+            status: 'success',
+            message: 'resto successfully added',
+            data: {
+                resto: {
+                    response
+                }
+            }
+        })
+    } catch (err) {
+        res.status(409).send({
+            status: 'failed',
+            message: 'server error: ' + err.message
+        })
+    }
+}
+
+
+exports.getRestos = async (req, res) => {
+    try {
+        const data = await resto.findAll({
+            include: {
+                model: users,
+                as: 'owner',
+                attributes: {
+                    exclude: ['password','createdAt','updatedAt']
+                }
+            },
+            attributes: {
+                exclude: ['createdAt','updatedAt']
+            }
+        })
+        res.send({
+            message: "success",
+            data: {
+                restos : data
+            }
+        })
+    } catch (error) {
+        res.status(409).send({
+            status: 'failed',
+            message: 'server error: ' + err.message
+        })
+    }
+}
+
+exports.getResto = async (req, res) => {
+    try {
+        const id =  req.user.id
+        const data = await resto.findOne({
+            where: {
+                ownerId: id
+            },
+            include: {
+                model: users,
+                as: 'owner',
+                attributes: {
+                    exclude: ['password','createdAt','updatedAt']
+                }
+            },
+            attributes: {
+                exclude: ['createdAt','updatedAt']
+            }
+        })
+        if (!data) {
+            return res.status(400).send({
+                status: 'fail',
+                message: 'resto not found',
+                data: { 
+                    resto: "resto details not found"
+                }
+            })
+        }
+        res.send({
+            message: "success",
+            data: {
+                resto :data
+            }
+        })
+    } catch (err) {
+        res.status(409).send({
+            status: 'failed',
+            message: 'server error: ' + err.message
+        })
+    }
+}
+
+exports.deleteResto = async (req, res) => {
+    try {
+        const id = req.user.id
+        const restoData = await resto.findOne({
+            ownerId: id
+        })
+        if (!restoData) {
+            return res.status(400).send({
+                status: 'fail',
+                message: 'resto not found',
+                data: { 
+                    resto: "resto details not found"
+                }
+            })
+        }
+        await resto.destroy({
+            where: { ownerId: id}
+        })
+        res.send({
+            status: 'success',
+            message: 'resto successfully destroy' 
+        })
+    } catch (error) {
+        res.status(409).send({
+            status: 'failed',
+            message: 'server error: ' + err.message
+        })
+    }
+}
+
+exports.editResto = async (req, res) => {
+    try {
+        const id = req.user.id
+        const restoData = await resto.findOne({
+            where: { ownerId: id}
+        })
+        if (!restoData) {
+            return res.status(400).send({
+                status: 'fail',
+                message: 'resto not found',
+                data: { 
+                    resto: "resto details not found"
+                }
+            })
+        }
+        
+        const data = req.body
+        await resto.update(data, {
+            where: { ownerId: id}
+        })
+        res.send({
+            status: 'success',
+            message: 'resto successfully update' 
+        })
+    } catch (err) {
+        res.status(409).send({
+            status: 'failed',
+            message: 'server error: ' + err.message
+        })
+    }
+}
