@@ -4,21 +4,23 @@ require("dotenv").config();
 const joi = require('joi')
 const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
+const path = 'http://localhost:5000/img/'
 
 exports.register = async (req, res) => {
     const schema = joi.object({
-        fullname: joi.string().min(3).required(),
         email: joi.string().email().required(),
         password: joi.string().min(4).required(),
+        fullname: joi.string().min(3).required(),
         role: joi.string().required(),
         phone: joi.string().optional(),
+        gender: joi.string().optional(),
         location: joi.string().optional(),
-        img: joi.string().optional(),
+        image: joi.string().optional(),
     })
     const { error } = schema.validate(req.body);
     if (error) {
-        return res.status(400).send({
-            err : error.details[0].message
+        return res.status(401).send({
+            err: error.details[0].message,
         })
     }
     try {
@@ -28,7 +30,7 @@ exports.register = async (req, res) => {
         })
 
         if (valid) {
-            return res.status(400).send({
+            return res.status(201).send({
                 status: 'failed',
                 message: 'acc already exists'
             })
@@ -36,22 +38,16 @@ exports.register = async (req, res) => {
         
         const salt = await bcrypt.genSalt(8)
         const hashPass = await bcrypt.hash(req.body.password, salt)
-        // let data = req.body
-        // data = JSON.parse(JSON.stringify(data))
-        // data = [data].map(x => {
-        //     return {
-        //         ...x,
-        //         password:  hashPass
-        //     }
-        // })
+
         const response = await users.create({
             fullname: req.body.fullname ,
             email:  email,
             password:  hashPass,
             role:  req.body.role,
+            gender:  req.body.gender,
             phone:  req.body.phone,
             location:  req.body.location,
-            img:  req.body.img,
+            image: 'LOFI.jpg' ,
         })
 
         valid = await users.findOne({
@@ -61,7 +57,7 @@ exports.register = async (req, res) => {
             id: valid.id,
             status: valid.role
         }
-        
+        const {role,id ,location,phone ,image} = valid
         const token = jwt.sign(userData,process.env.JWT_TOKEN)
         
         res.status(200).send({
@@ -69,15 +65,20 @@ exports.register = async (req, res) => {
             message: 'successfully register',
             data: {
                 user: {
-                    name: response.fullname,
+                    fullname: response.fullname,
                     email: email,
-                    token
+                    id,
+                    role,
+                    token,
+                    location,
+                    phone,
+                    image: path + image
                 }
             },
             
         })
     } catch (err) {
-        res.status(409).send({
+        res.status(500).send({
             status: 'failed',
             message: 'server error: ' + err.message
         })
@@ -91,8 +92,8 @@ exports.login = async (req, res) => {
     })
     const { error } = schema.validate(req.body);
     if (error) {
-        return res.status(400).send({
-            err : error.details[0].message
+        return res.status(401).send({
+            err: error.details[0].message,
         })
     }
 
@@ -116,7 +117,7 @@ exports.login = async (req, res) => {
                 message: 'email or password wrong'
             })
         }
-        const { id, fullname } = userAcc
+        const { id, fullname ,role ,location,phone,image} = userAcc
         const userData = {
             id,
             status: userAcc.role
@@ -126,13 +127,51 @@ exports.login = async (req, res) => {
 
         res.status(200).send({
             status: 'login',
+            id,
+            role,
             fullname,
             email,
             token,
+            location,
+            phone,
+            image: path + image
         })
 
     }catch (err) {
         res.status(409).send({
+            status: 'failed',
+            message: 'server error: ' + err.message
+        })
+    }
+}
+
+exports.auth = async (req, res) => {
+    try {
+        const {id }= req.user
+        const userAcc = await users.findOne({
+            where: {id}
+        })
+        const { fullname, role, email ,location,phone ,image} = userAcc
+        const userData = {
+            id,
+            status: userAcc.role
+        }
+        
+        const token = jwt.sign(userData,process.env.JWT_TOKEN)
+
+        res.status(200).send({
+            status: 'login',
+            id,
+            role,
+            fullname,
+            email,
+            token,
+            location,
+            phone,
+            image: path + image
+        })
+    } catch (err) {
+        res.status(500).send({
             status: 'failed',
             message: 'server error: ' + err.message
         })

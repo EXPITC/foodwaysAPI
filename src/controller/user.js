@@ -7,7 +7,6 @@ exports.addUser = async (req, res) => {
         const data = req.body;
         const response = await users.create({
             ...data,
-            img: req.file.filename
         })
         
         res.status(200).send({
@@ -97,12 +96,64 @@ exports.getUser = async (req, res) => {
         })
     }
 }
-
+exports.profileMe = async (req, res) => {
+    try {
+        const { id } = req.user
+        const userData = await users.findOne({
+            attributes: {
+                exclude:['password','createdAt','updatedAt']
+            },
+            where: { id }
+        })
+        userData ? 
+        res.status(200).send({
+            status: 'success',
+            message: 'user successfully retrieved',
+            data: {
+                user: userData
+            }
+        }) :
+            res.status(400).send({
+                status: 'fail',
+                message: 'user not found',
+                data: {
+                    user: "user details not found"
+                }
+            })
+        
+        
+    } catch (err) {
+        res.status(409).send({
+            status: 'failed',
+            message: 'server error: ' + err.message
+        })
+    }
+}
 exports.updateUser = async (req, res) => {
     try {
-        const { id } = req.params
+        const { id } = req.user
         const data = req.body
-        await users.update(data, {
+        const img = await users.findOne({
+            where: {id}
+        })
+        console.log(id)
+        console.log(img)
+        const fs = require('fs')
+        const path = `./uploads/img/${img.image}`
+        
+        if (req.body?.image != img.image) {
+            try {
+                if (img.image != 'LOFI.jpg') {
+                    fs.unlinkSync(path)
+                }
+            } catch (error) {
+                console.log(error)
+            }
+        }
+        await users.update({
+            ...data,
+            image: req.file.filename
+        }, {
             where: {id}
         })
     
@@ -118,7 +169,28 @@ exports.updateUser = async (req, res) => {
         })
     }
 }
-
+exports.updateUserData = async (req, res) => {
+    try {
+        const { id } = req.user
+        const data = req.body
+        await users.update({
+            ...data,
+        }, {
+            where: {id}
+        })
+    
+        res.send({
+            status: 'success',
+            message: 'user successfully update' 
+        })
+        
+    } catch (err) {
+        res.status(409).send({
+            status: 'failed',
+            message: 'server error: ' + err.message
+        })
+    }
+}
 exports.deleteUser = async (req, res) => {
     try {
         const { id } = req.params
@@ -194,9 +266,9 @@ exports.getUserRestos = async (req, res) => {
             where: { role: "owner"},
             include: {
                 model: resto,
-                as: 'resto',
+                as: 'restos',
                 attributes: {
-                    exclude: ['ownerId','createdAt','updatedAt']
+                    exclude: ['createdAt','updatedAt']
                 }
             }
         })

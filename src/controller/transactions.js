@@ -1,40 +1,49 @@
 const { transactions ,users , products , order} = require('../../models')
-
+const Op = require('Sequelize').Op;
 exports.addTransaction = async (req, res) => {
     try {
-        // const thenTransaction = await transactions.findOne({
-        //     where: {
-        //         buyerId: req.user.id,
-        //         $or: [{ status: 'Waiting Approve'  },{ status: 'On The Way' }]
-        //    } 
-        // })
-        // if (thenTransaction) {
-        //     return res.status(409).send({
-        //         status: 'fail',
-        //         message: `you still have transaction with status ${thenTransaction.status}`,
-        //         thenTransaction
-        //     })
-        // }
-        let data = req.body
+        const thenTransaction = await transactions.findOne({
+            where: {
+                buyerId: req.user.id,
+                status: {
+                    [Op.or] : ['Waiting Approve','On The Way', 'Order']
+                }
+           } 
+        })
+        if (thenTransaction) {
+            return res.status(201).send({
+                status: 'fail',
+                message: `you still have transaction with status ${thenTransaction.status}`,
+                thenTransaction
+            })
+        }
+        console.log('/////////////////////')
+        let data = await req.body
+        console.log(data)
+        console.log(req.user.id)
+        console.log('/////////////////////')
         let response = await transactions.create({
             sellerId: data.sellerId,
             buyerId: req.user.id,
-            status: 'Waiting Approve'
+            status: 'Order',
+            price: 0,
         })
         
         data = JSON.parse(JSON.stringify(data))
 
         let dataOrder = data.product
-        dataOrder = dataOrder.map(x => {
-            return {
-                ...x,
-                transactionId: response.id,
-                status: 'pending',
-                buyerId: req.user.id,
-            }
-        })
-        await order.bulkCreate(dataOrder)
-
+        if (dataOrder) {
+            dataOrder = dataOrder.map(x => {
+                return {
+                    ...x,
+                    transactionId: response.id,
+                    status: 'pending',
+                    buyerId: req.user.id,
+                }
+            })
+            await order.bulkCreate(dataOrder)
+        }
+        console.log('pass3')
 
         response = await transactions.findOne({where: {
             id: response.id,
@@ -69,11 +78,25 @@ exports.addTransaction = async (req, res) => {
             exclude: ['sellerId', 'buyerId', 'productId', 'price','createdAt', 'updatedAt']
         }
     })
-        res.status(200).send({
+    console.log('pass4')
+    let total = 0
+    total = response.product.map(x =>{
+        return total + x.price * x.order.qty
+    })
+    total = total.reduce((a,b)=>
+        a + b ,0
+    )
+    console.log(total)
+    await transactions.update({price: total}, {
+        where: {id: response.id}
+    })
+    console.log('pass5')
+    res.status(200).send({
             status: 'success add',
             data: {
                 transactions: {
                     response,
+                    total,
                 }
             }
         })
@@ -85,12 +108,56 @@ exports.addTransaction = async (req, res) => {
     }
 }
 
+exports.getTransactionUser = async (req, res) => {
+    try {
+        const thenTransaction = await transactions.findOne({
+            where: {
+                buyerId: req.user.id,
+                status: 'On The Way'
+            }
+        })
+        res.status(200).send({
+                status: 'success',
+                data: thenTransaction
+        })
+
+    } catch (error) {
+        res.status(409).send({
+            status: 'failed',
+            message: 'server error: ' + err.message
+        })
+    }
+}
+exports.getTransactionUserOrder = async (req, res) => {
+    try {
+        const thenTransaction = await transactions.findOne({
+            where: {
+                buyerId: req.user.id,
+                status: 'Order'
+            }
+        })
+
+        res.status(200).send({
+                status: 'success',
+                data: thenTransaction
+        })
+
+    } catch (error) {
+        res.status(409).send({
+            status: 'failed',
+            message: 'server error: ' + err.message
+        })
+    }
+}
 exports.getTransactions = async (req, res) => {
     try {
         const id = req.user.id
-        const data = await transactions.findAll({
+        const data = await transactions.findOne({
             where: {
-                buyerId: id
+                buyerId: id,
+                status: {
+                    [Op.or] : ['Waiting Approve','On The Way','Order']
+                }
             },
             include: [
                 {
@@ -125,7 +192,88 @@ exports.getTransactions = async (req, res) => {
         res.status(200).send({
             message: 'Success',
             data: {
-                transactions : data
+                transaction : data
+            }
+        })
+    } catch (err) {
+        res.status(409).send({
+            status: 'failed',
+            message: 'server error: ' + err.message
+        })
+    }
+}
+
+exports.getTransactionActive = async (req, res) => {
+    try {
+        const id = req.user.id
+        let data = await transactions.findAll({
+            where: {
+                buyerId: id,
+                status: {
+                    [Op.or] : ['Waiting Approve','On The Way','Order']
+                }
+            },
+            include: [
+                {
+                    model: users,
+                    as: "buyer",
+                    attributes: {
+                        exclude: ['password','createdAt','updatedAt']
+                    }
+                },
+                {
+                    model: products,
+                    as: 'product',
+                    through: {
+                        model: order,
+                        attributes: {
+                            include: ['id']
+                        }
+                    },
+                    attributes: {
+                        exclude: ['createdAt','updatedAt']
+                    }
+                },
+                {
+                    model: users,
+                    as: "seller",
+                    attributes: {
+                        exclude: ['password','createdAt','updatedAt']
+                    }
+                }
+            ],
+            attributes: {
+                exclude: ['createdAt', 'updatedAt']
+            }
+        })
+        const path = 'http://localhost:5000/img/'
+        data = JSON.parse(JSON.stringify(data))
+        let product = data.map(x => {
+            return {
+                product: x.product.map(x => {
+                    return {
+                        ...x,
+                        img: path + x.img
+                    }
+                })
+               
+            }
+        })
+        product = product[0].product.map(x => {
+            return {
+                ...x
+            }
+        })
+        data = data.map(x => {
+            return {
+                ...x,
+                product
+            }
+        })
+        res.status(200).send({
+            message: 'Success',
+            data: {
+                transactions: data
             }
         })
     } catch (err) {
@@ -151,7 +299,10 @@ exports.getTransactionsAdmin = async (req, res) => {
                     model: products,
                     as: 'product',
                     through: {
-                        model: order
+                        model: order,
+                        attributes: {
+                            include: ['id']
+                        }
                     },
                     attributes: {
                         exclude: ['createdAt','updatedAt']
@@ -173,7 +324,6 @@ exports.getTransactionsAdmin = async (req, res) => {
             message: 'Success',
             data: {
                 transactions: data,
-                total
             }
         })
     } catch (err) {

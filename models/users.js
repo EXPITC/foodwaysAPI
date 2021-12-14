@@ -11,16 +11,22 @@ module.exports = (sequelize, DataTypes) => {
      */
     static associate(models) {
       // define association here 
-      users.hasMany(models.resto, {
-        as: 'resto',
-        foreignKey: {
-          name: 'id'
-        }
-      })
+      // users.hasOne(models.resto, {
+      //   as: 'resto',
+      //   foreignKey: {
+      //     name: 'id'
+      //   }
+      // })
       users.hasMany(models.products, {
         as: 'products',
         foreignKey: {
           name: 'id'
+        }
+      })
+      users.hasOne(models.resto, {
+        as: 'restos',
+        foreignKey: {
+          name: 'ownerId'
         }
       })
     }
@@ -32,7 +38,9 @@ module.exports = (sequelize, DataTypes) => {
     phone: DataTypes.STRING,
     location: DataTypes.STRING,
     image: DataTypes.STRING,
-    role: DataTypes.STRING
+    role: DataTypes.STRING,
+    gender: DataTypes.STRING,
+    
   }, {
     sequelize,
     modelName: 'users',

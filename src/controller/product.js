@@ -42,7 +42,7 @@ exports.getProducts = async (req, res) => {
     }
 }
 
-exports.getProductsAdmin = async (req, res) => {
+exports.getProductsAll = async (req, res) => {
     try {
         const data = await products.findAll({
             include: {
@@ -190,6 +190,20 @@ exports.editProduct = async (req, res) => {
         const { id } = req.params
         const data = req.body
         const sellerId = req.user.id
+        const productData = await product.findOne({
+            where: {id}
+        })
+        const fs = require('fs')
+        const path = `./uploads/img/${productData.img}`
+
+        if (req.body?.img != productData.img) {
+            try {
+                fs.unlinkSync(path)
+            } catch (error) {
+                console.log(error)
+            }
+        }
+
         await products.update(data, {
             where: {
                 id,

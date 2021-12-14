@@ -17,11 +17,18 @@ module.exports = (sequelize, DataTypes) => {
            name: 'ownerId'
          }
        })
+       resto.belongsTo(models.users, {
+        as: 'owners',
+        foreignKey: {
+          name: 'id'
+        }
+      })
     }
   };
   resto.init({
     ownerId: DataTypes.INTEGER,
     title: DataTypes.STRING,
+    img: DataTypes.STRING,
     loc: DataTypes.STRING
   }, {
     sequelize,

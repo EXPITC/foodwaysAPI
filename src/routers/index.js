@@ -5,28 +5,33 @@ const {userCheck ,admin ,owner} = require('../middleware/userCheck')
 //auth
 const {
     register,
-    login
+    login,
+    auth
 } = require('../controller/auth')
 
 router.post('/register' , register)
-router.get('/login' , login)
+router.post('/login' , login)
+router.get('/login', userCheck, auth)
 // user
 const {
     addUser,
     getUsers,
     getUser,
     updateUser,
+    updateUserData,
     deleteUser,
-    getUserResto,
-    getUserRestos
+    getUserRestos,
+    profileMe
 } = require('../controller/user')
 
-router.post('/add/user', uploadImg('image'), addUser)
+router.get('/profile', userCheck, profileMe)
+
+router.post('/user', uploadImg('image'), addUser)
 router.get('/users', getUsers)
 router.get('/user/:id', getUser)
-router.get('/user/resto/:id', getUserResto)
-router.get('/users/resto', getUserRestos)
-router.patch('/user/:id', updateUser)
+router.get('/user/resto/:id', getUserRestos)
+router.patch('/user', userCheck,  uploadImg('image'), updateUser)
+router.patch('/userData', userCheck, updateUserData)
 router.delete('/user/:id', deleteUser)
 
 //product
@@ -34,7 +39,7 @@ router.delete('/user/:id', deleteUser)
 const {
     addProduct,
     getProducts,
-    getProductsAdmin,
+    getProductsAll,
     getProduct,
     editProduct,
     deleteProduct
@@ -42,7 +47,7 @@ const {
 
 router.post('/add/product/',userCheck, owner, uploadImg('image'), addProduct)
 router.get('/products', userCheck, owner,getProducts)
-router.get('/products/admin', userCheck, admin,getProductsAdmin)
+router.get('/products/all', getProductsAll)
 router.get('/product/:id',  userCheck, owner,getProduct)
 router.patch('/product/:id', userCheck, owner,editProduct)
 router.delete('/product/:id', userCheck, owner,deleteProduct)
@@ -54,11 +59,15 @@ const {
     getRestos,
     getResto,
     editResto,
-    deleteResto
+    deleteResto,
+    getRestoId,
+    getRestoUser
 } = require('../controller/resto')
 
-router.post('/add/resto', userCheck, owner,addResto)
-router.get('/restos/admin',userCheck, admin, getRestos) 
+router.post('/add/resto', userCheck, owner, uploadImg('img'), addResto)
+router.get('/resto/:id', getRestoId)
+router.get('/last/resto/:id', getRestoUser)
+router.get('/restos',  getRestos) 
 router.get('/resto/', userCheck, owner, getResto)
 router.patch('/resto/', userCheck, owner,editResto)
 router.delete('/resto/',userCheck, owner, deleteResto)
@@ -71,13 +80,19 @@ const {
     getTransactionsAdmin,
     getTransaction,
     editTransaction,
-    deleteTransaction
+    deleteTransaction,
+    getTransactionUser,
+    getTransactionActive,
+    getTransactionUserOrder
 } =  require('../controller/transactions')
 
 router.post('/add/transaction',userCheck, addTransaction)
+router.get('/transaction/user', userCheck ,getTransactionUser)
+router.get('/transaction/user/Order', userCheck ,getTransactionUserOrder)
 router.get('/transactions', userCheck ,getTransactions)
+router.get('/transaction/active', userCheck ,getTransactionActive)
 router.get('/transactions/admin', userCheck ,admin,getTransactionsAdmin)
-router.get('/transaction/:id', userCheck, getTransaction)
+router.get('/transactionby/:id', userCheck, getTransaction)
 router.patch('/transaction/:id',userCheck, editTransaction)
 router.delete('/transaction/:id', userCheck ,deleteTransaction)
 
@@ -89,11 +104,15 @@ const {
     getOrder,
     getOrderProduct,
     updateOrder,
-    deletedOrder
+    deletedOrder,
+    orderCount,
+    lessOrder
 } = require('../controller/order')
 
-router.post('/add/order' , addOrder)
+router.post('/add/order' ,userCheck, addOrder)
+router.post('/less/order' ,userCheck, lessOrder)
 router.get('/orders', userCheck ,getOrders)
+router.get('/order/count', userCheck ,orderCount)
 router.get('/orders/admin', userCheck,admin ,getOrdersAdmin)
 router.get('/order/:id',userCheck, getOrder)
 router.get('/order/product/:id', getOrderProduct)

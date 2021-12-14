@@ -1,7 +1,9 @@
-const { resto ,users} = require('../../models');
+const { resto ,users, products} = require('../../models');
+
 
 exports.addResto = async (req, res) => {
     try {
+        
         const data = req.body;
         const {id} = req.user
         const check = await resto.findOne({
@@ -18,11 +20,13 @@ exports.addResto = async (req, res) => {
                 check
             })
         }
+        
         const response = await resto.create({
             ...data,
+            img: req.file.filename,
             ownerId: id
         })
-        
+
         res.status(200).send({
             status: 'success',
             message: 'resto successfully added',
@@ -43,7 +47,8 @@ exports.addResto = async (req, res) => {
 
 exports.getRestos = async (req, res) => {
     try {
-        const data = await resto.findAll({
+        const path = 'http://localhost:5000/img/'
+        let data = await resto.findAll({
             include: {
                 model: users,
                 as: 'owner',
@@ -53,6 +58,14 @@ exports.getRestos = async (req, res) => {
             },
             attributes: {
                 exclude: ['createdAt','updatedAt']
+            }
+        })
+        
+        data = JSON.parse(JSON.stringify(data))
+        data = data.map(x => {
+            return {
+                ...x,
+                img: path + x.img
             }
         })
         res.send({
@@ -68,7 +81,59 @@ exports.getRestos = async (req, res) => {
         })
     }
 }
-
+exports.getRestoId = async (req, res) => {
+    try {
+        const {id} =  req.params
+        const data = await resto.findOne({
+            where: {id},
+            include: {
+                model: users,
+                as: 'owner',
+                attributes: {
+                    exclude: ['password','createdAt','updatedAt']
+                }
+            },
+            attributes: {
+                exclude: ['createdAt','updatedAt']
+            }
+        })
+        if (!data) {
+            return res.status(400).send({
+                status: 'fail',
+                message: 'resto not found',
+                data: { 
+                    resto: "resto details not found"
+                }
+            })
+        }
+        
+        let menu =  await products.findAll({
+            where: { sellerId: data.ownerId },
+            attributes: {
+                exclude: ['createdAt','updatedAt']
+            }
+        })
+        const path = 'http://localhost:5000/img/'
+        menu = JSON.parse(JSON.stringify(menu))
+        menu = menu.map(x => {
+            return {
+                ...x,
+                img: path + x.img
+            }
+        })
+        res.send({
+            message: "success",
+            data: {
+                resto :{data, menu}
+            }
+        })
+    } catch (err) {
+        res.status(409).send({
+            status: 'failed',
+            message: 'server error: ' + err.message
+        })
+    }
+}
 exports.getResto = async (req, res) => {
     try {
         const id =  req.user.id
@@ -96,10 +161,17 @@ exports.getResto = async (req, res) => {
                 }
             })
         }
+        const menu =  await products.findAll({
+            where: { sellerId: id },
+            attributes: {
+                exclude: ['createdAt','updatedAt']
+            }
+        })
+
         res.send({
             message: "success",
             data: {
-                resto :data
+                resto :{data, menu}
             }
         })
     } catch (err) {
@@ -110,6 +182,53 @@ exports.getResto = async (req, res) => {
     }
 }
 
+exports.getRestoUser = async (req, res) => {
+    try {
+        const {id} =  req.params
+        const data = await resto.findOne({
+            where: {
+                ownerId: id
+            },
+            include: {
+                model: users,
+                as: 'owner',
+                attributes: {
+                    exclude: ['password','createdAt','updatedAt']
+                }
+            },
+            attributes: {
+                exclude: ['createdAt','updatedAt']
+            }
+        })
+        if (!data) {
+            return res.status(400).send({
+                status: 'fail',
+                message: 'resto not found',
+                data: { 
+                    resto: "resto details not found"
+                }
+            })
+        }
+        // const menu =  await products.findAll({
+        //     where: { sellerId: id },
+        //     attributes: {
+        //         exclude: ['createdAt','updatedAt']
+        //     }
+        // })
+
+        res.send({
+            message: "success",
+            data: {
+                resto : data
+            }
+        })
+    } catch (err) {
+        res.status(409).send({
+            status: 'failed',
+            message: 'server error: ' + err.message
+        })
+    }
+}
 exports.deleteResto = async (req, res) => {
     try {
         const id = req.user.id
@@ -146,6 +265,15 @@ exports.editResto = async (req, res) => {
         const restoData = await resto.findOne({
             where: { ownerId: id}
         })
+        const fs = require('fs')
+        const path = `./uploads/img/${restoData.img}`
+        if (req.body?.img != restoData.img) {
+            try {
+                fs.unlinkSync(path)
+            } catch (error) {
+                console.log(error)
+            }
+        }
         if (!restoData) {
             return res.status(400).send({
                 status: 'fail',
