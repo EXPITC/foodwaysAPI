@@ -1,4 +1,4 @@
-const { order, transactions, products } = require('../../models')
+const { order , transactions, products } = require('../../models')
 const Op = require('Sequelize').Op;
 
 exports.addOrder = async (req, res) => {

@@ -7,6 +7,7 @@ exports.addUser = async (req, res) => {
         const data = req.body;
         const response = await users.create({
             ...data,
+            location : '‑6.200000 106.816666'
         })
         
         res.status(200).send({
